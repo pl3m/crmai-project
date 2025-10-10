@@ -30,20 +30,23 @@ model_path = Path(__file__).parent / 'ml_models' / 'lead_scorer.pkl'
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown events."""
     global model
-    # Startup: Load the model
+    # Startup: Load the model (non-blocking)
+    print("🚀 Starting AI service...")
     try:
         if model_path.exists():
             model = joblib.load(model_path)
             print(f"✅ Model loaded successfully from {model_path}")
         else:
             print(f"⚠️  Warning: Model not found at {model_path}")
-            print("   Run 'python scripts/generate_data.py' and 'python scripts/train_model.py' first")
+            print("   Service will use fallback calculations")
     except Exception as e:
-        print(f"❌ Error loading model: {e}")
+        print(f"⚠️  Warning: Error loading model: {e}")
+        print("   Service will use fallback calculations")
     
+    print("✅ AI service ready!")
     yield
     
-    # Shutdown: Clean up (nothing to do for now)
+    # Shutdown: Clean up
     print("👋 Shutting down AI service...")
 
 
@@ -123,19 +126,14 @@ async def root():
     }
 
 
-@app.get("/health", response_model=HealthResponse, tags=["General"])
+@app.get("/health", tags=["General"])
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint - always returns 200 for Railway."""
     return {
         "status": "ok",
         "model_loaded": model is not None,
         "version": "1.0.0"
     }
-
-@app.get("/health/simple", tags=["General"])
-async def simple_health_check():
-    """Simple health check endpoint that always returns 200."""
-    return {"status": "ok"}
 
 
 @app.post("/predict/lead-score", response_model=LeadScoreResponse, tags=["Prediction"])
