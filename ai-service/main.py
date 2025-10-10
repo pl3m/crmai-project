@@ -28,26 +28,21 @@ model_path = Path(__file__).parent / 'ml_models' / 'lead_scorer.pkl'
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager for startup/shutdown events."""
-    global model
-    # Startup: Load the model (non-blocking)
+    """Simple lifespan manager."""
     print("🚀 Starting AI service...")
+    # Load model if available
+    global model
     try:
         if model_path.exists():
             model = joblib.load(model_path)
-            print(f"✅ Model loaded successfully from {model_path}")
+            print("✅ Model loaded")
         else:
-            print(f"⚠️  Warning: Model not found at {model_path}")
-            print("   Service will use fallback calculations")
+            print("⚠️ No model found, using fallback")
     except Exception as e:
-        print(f"⚠️  Warning: Error loading model: {e}")
-        print("   Service will use fallback calculations")
+        print(f"⚠️ Model error: {e}")
     
-    print("✅ AI service ready!")
     yield
-    
-    # Shutdown: Clean up
-    print("👋 Shutting down AI service...")
+    print("👋 Shutting down...")
 
 
 # Initialize FastAPI app
@@ -126,14 +121,15 @@ async def root():
     }
 
 
-@app.get("/health", tags=["General"])
+@app.get("/health")
 async def health_check():
-    """Health check endpoint - always returns 200 for Railway."""
-    return {
-        "status": "ok",
-        "model_loaded": model is not None,
-        "version": "1.0.0"
-    }
+    """Simple healthcheck for Railway."""
+    return {"status": "ok"}
+
+@app.get("/")
+async def root():
+    """Root endpoint that also works as healthcheck."""
+    return {"message": "AI Lead Scoring Service", "status": "running"}
 
 
 @app.post("/predict/lead-score", response_model=LeadScoreResponse, tags=["Prediction"])
@@ -223,7 +219,5 @@ async def model_info():
 
 if __name__ == "__main__":
     import uvicorn
-    import os
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
