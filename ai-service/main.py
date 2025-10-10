@@ -132,6 +132,11 @@ async def health_check():
         "version": "1.0.0"
     }
 
+@app.get("/health/simple", tags=["General"])
+async def simple_health_check():
+    """Simple health check endpoint that always returns 200."""
+    return {"status": "ok"}
+
 
 @app.post("/predict/lead-score", response_model=LeadScoreResponse, tags=["Prediction"])
 async def predict_lead_score(request: LeadScoreRequest):
