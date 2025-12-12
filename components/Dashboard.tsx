@@ -26,6 +26,7 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  ChartLegend,
 } from '@/components/ui/chart';
 import type { Lead } from '@/types';
 
@@ -59,7 +60,41 @@ export default function Dashboard() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const supabase = createClient();
+
+  // Custom legend renderer for the pie chart to show colored dot + label
+  const renderPieLegend = ({ payload }: any) => {
+    if (!payload?.length) return null;
+    return (
+      <div className='mt-2 flex flex-wrap items-center justify-center gap-3 text-[11px] sm:text-xs'>
+        {payload
+          .filter((item: any) => item.type !== 'none')
+          .map((item: any) => (
+            <div
+              key={item.value || item.dataKey}
+              className='flex items-center gap-2 whitespace-nowrap'
+            >
+              <span
+                className='h-2.5 w-2.5 shrink-0 rounded-[3px]'
+                style={{ backgroundColor: item.color }}
+              />
+              <span>{item.value || item.payload?.industry || item.dataKey}</span>
+            </div>
+          ))}
+      </div>
+    );
+  };
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -174,17 +209,17 @@ export default function Dashboard() {
   }
 
   return (
-    <div className='space-y-6'>
+    <div className='space-y-4 sm:space-y-6 px-4 sm:px-0'>
       {/* Header */}
-      <div className='flex justify-between items-center'>
-        <h1 className='text-3xl font-bold text-gray-900'>
+      <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4'>
+        <h1 className='text-2xl sm:text-3xl font-bold text-gray-900'>
           Analytics Dashboard
         </h1>
         <LeadManagementButtons onRefresh={fetchAnalytics} />
       </div>
 
       {/* Stats Cards */}
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+      <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6'>
         <Card>
           <CardHeader className='pb-3'>
             <CardDescription>Total Leads</CardDescription>
@@ -221,8 +256,8 @@ export default function Dashboard() {
       </div>
 
       {/* Charts */}
-      <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
-        {/* Industry Distribution */}
+      <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6'>
+        {/* Industry Distribution - Bar Chart */}
         <Card>
           <CardHeader>
             <CardTitle>Leads by Industry</CardTitle>
@@ -230,11 +265,11 @@ export default function Dashboard() {
               Distribution of leads across industries
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className='overflow-x-auto -mx-6 px-6'>
             {analytics.industryData.length > 0 ? (
               <ChartContainer
                 config={chartConfig}
-                className='h-[300px]'
+                className='h-[280px] min-w-[300px] sm:h-[320px]'
               >
                 <BarChart data={analytics.industryData}>
                   <CartesianGrid
@@ -248,15 +283,20 @@ export default function Dashboard() {
                     axisLine={false}
                     tickMargin={8}
                     className='text-xs'
-                    tickFormatter={(value) =>
-                      value.charAt(0).toUpperCase() + value.slice(1)
-                    }
+                    angle={-45}
+                    textAnchor='end'
+                    height={80}
+                    interval={0}
+                    tickFormatter={(value) => {
+                      return value.charAt(0).toUpperCase() + value.slice(1);
+                    }}
                   />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
                     tickMargin={8}
                     className='text-xs'
+                    width={40}
                   />
                   <ChartTooltip
                     content={<ChartTooltipContent hideLabel />}
@@ -287,7 +327,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Industry Distribution */}
+        {/* Industry Distribution - Pie Chart */}
         <Card>
           <CardHeader>
             <CardTitle>Leads by Industry</CardTitle>
@@ -295,39 +335,48 @@ export default function Dashboard() {
               Distribution across different industry sectors
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className='overflow-hidden px-6'>
             {analytics.industryPieData.length > 0 ? (
-              <ChartContainer
-                config={pieChartConfig}
-                className='h-[300px]'
-              >
-                <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                  <Pie
-                    data={analytics.industryPieData}
-                    dataKey='count'
-                    nameKey='industry'
-                    cx='50%'
-                    cy='50%'
-                    outerRadius={100}
-                    label={({ industry, percent }: any) =>
-                      `${industry}: ${(percent * 100).toFixed(0)}%`
-                    }
-                    labelLine={false}
-                  >
-                    {analytics.industryPieData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={
-                          pieChartConfig[
-                            entry.industry.toLowerCase() as keyof typeof pieChartConfig
-                          ]?.color || '#3b82f6'
-                        }
-                      />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ChartContainer>
+              <div className='w-full overflow-hidden'>
+                <ChartContainer
+                  config={pieChartConfig}
+                  className='h-[260px] w-full sm:h-[320px]'
+                >
+                  <PieChart>
+                    <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                    <Pie
+                      data={analytics.industryPieData}
+                      dataKey='count'
+                      nameKey='industry'
+                      cx='50%'
+                      cy='50%'
+                      outerRadius={isMobile ? '65%' : '75%'}
+                      label={({ industry, percent }: any) => {
+                        return isMobile
+                          ? `${(percent * 100).toFixed(0)}%`
+                          : `${industry}: ${(percent * 100).toFixed(0)}%`;
+                      }}
+                      labelLine={false}
+                    >
+                      {analytics.industryPieData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            pieChartConfig[
+                              entry.industry.toLowerCase() as keyof typeof pieChartConfig
+                            ]?.color || '#3b82f6'
+                          }
+                        />
+                      ))}
+                    </Pie>
+                    <ChartLegend
+                      verticalAlign='bottom'
+                      align='center'
+                      content={renderPieLegend}
+                    />
+                  </PieChart>
+                </ChartContainer>
+              </div>
             ) : (
               <p className='text-muted-foreground text-center py-8'>
                 No data available
