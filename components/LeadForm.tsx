@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Card,
   CardContent,
@@ -18,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import type { LeadFormData } from '@/types';
+import { leadFormSchema, type LeadFormData } from '@/lib/schemas';
 import { INDUSTRIES, LEAD_SOURCES } from '@/types';
 
 interface LeadFormProps {
@@ -31,17 +33,26 @@ export default function LeadForm({ onSuccess }: LeadFormProps) {
   const [success, setSuccess] = useState(false);
   const [aiScore, setAiScore] = useState<number | null>(null);
 
-  const [formData, setFormData] = useState<LeadFormData>({
-    company_name: '',
-    contact_email: '',
-    contact_name: '',
-    industry: 'technology',
-    company_size: 50,
-    source: 'website',
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    setValue,
+    watch,
+  } = useForm<LeadFormData>({
+    resolver: zodResolver(leadFormSchema),
+    defaultValues: {
+      company_name: '',
+      contact_email: '',
+      contact_name: '',
+      industry: 'technology',
+      company_size: 50,
+      source: 'website',
+    },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: LeadFormData) => {
     setLoading(true);
     setError(null);
     setSuccess(false);
@@ -51,7 +62,7 @@ export default function LeadForm({ onSuccess }: LeadFormProps) {
       const response = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -64,14 +75,7 @@ export default function LeadForm({ onSuccess }: LeadFormProps) {
       setAiScore(lead.ai_score || null);
 
       // Reset form
-      setFormData({
-        company_name: '',
-        contact_email: '',
-        contact_name: '',
-        industry: 'technology',
-        company_size: 50,
-        source: 'website',
-      });
+      reset();
 
       if (onSuccess) {
         onSuccess();
@@ -81,23 +85,6 @@ export default function LeadForm({ onSuccess }: LeadFormProps) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === 'company_size' ? parseInt(value) || 0 : value,
-    }));
-  };
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
   };
 
   return (
@@ -110,7 +97,7 @@ export default function LeadForm({ onSuccess }: LeadFormProps) {
       </CardHeader>
       <CardContent>
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmit(onSubmit)}
           className='space-y-4'
         >
           <div className='space-y-2'>
@@ -118,12 +105,14 @@ export default function LeadForm({ onSuccess }: LeadFormProps) {
             <Input
               type='text'
               id='company_name'
-              name='company_name'
-              required
-              value={formData.company_name}
-              onChange={handleChange}
+              {...register('company_name')}
               placeholder='Acme Corporation'
             />
+            {errors.company_name && (
+              <p className='text-sm text-destructive'>
+                {errors.company_name.message}
+              </p>
+            )}
           </div>
 
           <div className='space-y-2'>
@@ -131,12 +120,14 @@ export default function LeadForm({ onSuccess }: LeadFormProps) {
             <Input
               type='email'
               id='contact_email'
-              name='contact_email'
-              required
-              value={formData.contact_email}
-              onChange={handleChange}
+              {...register('contact_email')}
               placeholder='john@acme.com'
             />
+            {errors.contact_email && (
+              <p className='text-sm text-destructive'>
+                {errors.contact_email.message}
+              </p>
+            )}
           </div>
 
           <div className='space-y-2'>
@@ -144,18 +135,21 @@ export default function LeadForm({ onSuccess }: LeadFormProps) {
             <Input
               type='text'
               id='contact_name'
-              name='contact_name'
-              value={formData.contact_name}
-              onChange={handleChange}
+              {...register('contact_name')}
               placeholder='John Doe'
             />
+            {errors.contact_name && (
+              <p className='text-sm text-destructive'>
+                {errors.contact_name.message}
+              </p>
+            )}
           </div>
 
           <div className='space-y-2'>
             <Label htmlFor='industry'>Industry *</Label>
             <Select
-              value={formData.industry}
-              onValueChange={(value) => handleSelectChange('industry', value)}
+              value={watch('industry')}
+              onValueChange={(value) => setValue('industry', value as any)}
             >
               <SelectTrigger>
                 <SelectValue placeholder='Select industry' />
@@ -171,6 +165,11 @@ export default function LeadForm({ onSuccess }: LeadFormProps) {
                 ))}
               </SelectContent>
             </Select>
+            {errors.industry && (
+              <p className='text-sm text-destructive'>
+                {errors.industry.message}
+              </p>
+            )}
           </div>
 
           <div className='space-y-2'>
@@ -178,20 +177,22 @@ export default function LeadForm({ onSuccess }: LeadFormProps) {
             <Input
               type='number'
               id='company_size'
-              name='company_size'
-              required
+              {...register('company_size', { valueAsNumber: true })}
               min='1'
-              value={formData.company_size}
-              onChange={handleChange}
               placeholder='50'
             />
+            {errors.company_size && (
+              <p className='text-sm text-destructive'>
+                {errors.company_size.message}
+              </p>
+            )}
           </div>
 
           <div className='space-y-2'>
             <Label htmlFor='source'>Lead Source</Label>
             <Select
-              value={formData.source}
-              onValueChange={(value) => handleSelectChange('source', value)}
+              value={watch('source')}
+              onValueChange={(value) => setValue('source', value as any)}
             >
               <SelectTrigger>
                 <SelectValue placeholder='Select source' />
@@ -207,6 +208,11 @@ export default function LeadForm({ onSuccess }: LeadFormProps) {
                 ))}
               </SelectContent>
             </Select>
+            {errors.source && (
+              <p className='text-sm text-destructive'>
+                {errors.source.message}
+              </p>
+            )}
           </div>
 
           {error && (

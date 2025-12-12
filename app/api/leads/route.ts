@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
+import { createLeadRequestSchema } from '@/lib/schemas';
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
@@ -76,20 +77,22 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient();
-    const leadData = await request.json();
+    const rawData = await request.json();
 
-    // Validate required fields
-    if (
-      !leadData.company_name ||
-      !leadData.contact_email ||
-      !leadData.industry ||
-      !leadData.company_size
-    ) {
+    // Validate data with Zod
+    const validationResult = createLeadRequestSchema.safeParse(rawData);
+
+    if (!validationResult.success) {
       return NextResponse.json(
-        { message: 'Missing required fields' },
+        {
+          message: 'Validation failed',
+          errors: validationResult.error.errors,
+        },
         { status: 400 }
       );
     }
+
+    const leadData = validationResult.data;
 
     // Calculate engagement score
     const engagementScore = calculateEngagementScore(leadData.source);
